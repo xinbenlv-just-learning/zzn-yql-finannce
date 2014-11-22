@@ -1,0 +1,22 @@
+{
+  "name": "zzn-yql-finance",
+  "version": "0.0.0",
+  "description": "A simple package to use Yahoo! Query Language to query finance data.",
+  "main": "tmp.js",
+  "dependencies": {
+    "yql": "~1.0.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "finance",
+    "stock",
+    "price",
+    "tickers",
+    "symbols"
+  ],
+  "author": "Zainan Victor Zhou",
+  "license": "BSD-2-Clause"
+}
