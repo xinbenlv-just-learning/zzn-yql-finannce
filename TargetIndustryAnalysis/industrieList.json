@@ -1,0 +1,130 @@
+[
+    {
+        "id": "821",
+        "name": "Application Software"
+    },
+    {
+        "id": "826",
+        "name": "Business Software & Services"
+    },
+    {
+        "id": "841",
+        "name": "Communication Equipment"
+    },
+    {
+        "id": "812",
+        "name": "Computer Based Systems"
+    },
+    {
+        "id": "815",
+        "name": "Computer Peripherals"
+    },
+    {
+        "id": "813",
+        "name": "Data Storage Devices"
+    },
+    {
+        "id": "846",
+        "name": "Diversified Communication Services"
+    },
+    {
+        "id": "810",
+        "name": "Diversified Computer Systems"
+    },
+    {
+        "id": "836",
+        "name": "Diversified Electronics"
+    },
+    {
+        "id": "825",
+        "name": "Healthcare Information Services"
+    },
+    {
+        "id": "827",
+        "name": "Information & Delivery Services"
+    },
+    {
+        "id": "824",
+        "name": "Information Technology Services"
+    },
+    {
+        "id": "851",
+        "name": "Internet Information Providers"
+    },
+    {
+        "id": "850",
+        "name": "Internet Service Providers"
+    },
+    {
+        "id": "852",
+        "name": "Internet Software & Services"
+    },
+    {
+        "id": "843",
+        "name": "Long Distance Carriers"
+    },
+    {
+        "id": "820",
+        "name": "Multimedia & Graphics Software"
+    },
+    {
+        "id": "814",
+        "name": "Networking & Communication Devices"
+    },
+    {
+        "id": "811",
+        "name": "Personal Computers"
+    },
+    {
+        "id": "835",
+        "name": "Printed Circuit Boards"
+    },
+    {
+        "id": "842",
+        "name": "Processing Systems & Products"
+    },
+    {
+        "id": "837",
+        "name": "Scientific & Technical Instruments"
+    },
+    {
+        "id": "823",
+        "name": "Security Software & Services"
+    },
+    {
+        "id": "830",
+        "name": "Semiconductor - Broad Line"
+    },
+    {
+        "id": "833",
+        "name": "Semiconductor - Integrated Circuits"
+    },
+    {
+        "id": "832",
+        "name": "Semiconductor - Specialized"
+    },
+    {
+        "id": "834",
+        "name": "Semiconductor Equipment & Materials"
+    },
+    {
+        "id": "831",
+        "name": "Semiconductor- Memory Chips"
+    },
+    {
+        "id": "822",
+        "name": "Technical & System Software"
+    },
+    {
+        "id": "844",
+        "name": "Telecom Services - Domestic"
+    },
+    {
+        "id": "845",
+        "name": "Telecom Services - Foreign"
+    },
+    {
+        "id": "840",
+        "name": "Wireless Communications"
+    }
+]

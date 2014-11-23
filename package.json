@@ -4,7 +4,9 @@
   "description": "A simple package to use Yahoo! Query Language to query finance data.",
   "main": "tmp.js",
   "dependencies": {
-    "yql": "~1.0.2"
+    "yql": "~1.0.2",
+    "node-gyp": "~1.0.2",
+    "sqlite3": "~3.0.4"
   },
   "devDependencies": {},
   "scripts": {
