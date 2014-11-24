@@ -294,7 +294,7 @@
                     var query = util.format("SELECT * FROM yahoo.finance.%s WHERE symbol in (%s) ", table.name, "\""
                      + tickers.join("\",\"") + "\"") + (table.name === "keystats" ? "" : " and timeframe=\"annually\"");
                     return YQL.execp(query).then(function(response) {
-                        logger.debug("getting response! COUNTERS[response]=" + COUNTERS.response);
+                        logger.debug(util.format("getting response! COUNTERS[response] = %d, total = %d", COUNTERS.response, promises.length));
                         COUNTERS.response = COUNTERS.response + 1;
                         return response;
                     });
