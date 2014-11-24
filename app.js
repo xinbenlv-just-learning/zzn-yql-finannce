@@ -2,14 +2,32 @@
 
     'use strict';
     var log4js = require('log4js');
+    log4js.configure({
+        appenders: [{
+            type: 'logLevelFilter',
+            level: "INFO",
+            "appender": {
+                "type": "console"
+            }
+        },
+        {
+            type: 'logLevelFilter',
+            level: "TRACE",
+            "appender": {
+                type: 'file',
+                filename: (new Date()).toISOString().replace(/:/g, '-') + '.log'
+            }
+        }]
+    });
     var logger = log4js.getLogger();
-    logger.debug("Start!");
+    logger.info("Start!");
     var Q = require("q");
     var util = require('util');
     var SETTINGS = {
         db: "finance.db",
         deleteDb: false,
         chunk: 100,
+        usStockOnly: false,
         financialStatementsTables: [
             {
                 name : "balancesheet",
@@ -151,7 +169,9 @@
             columns :[{ name: 'name'}, { name: 'symbol', isKey: true }, {name: 'industryId'}]
         }]
     };
-
+    var YQL = require('yqlp');
+    var sqlite3 = require('sqlite3').verbose();
+    var db = new sqlite3.Database(SETTINGS.db);
     Array.prototype.chunk = function(chunkSize) {
         var array=this;
         return [].concat.apply([],
@@ -160,17 +180,13 @@
             })
         );
     };
+    var COUNTERS = {};
+    COUNTERS["response"] = 0;
 
-    var YQL = require('yqlp');
-    var sqlite3 = require('sqlite3').verbose();
-    var db = new sqlite3.Database(SETTINGS.db);
-    /**
-     * Used as a Q promise
-     */
     function LoadIndustriesAndCompanies() {
         var query = 'select * from yahoo.finance.industry where id in (select industry.id from yahoo.finance.sectors)';
 
-        logger.debug("QUERY: " + query);
+        logger.info("QUERY: " + query);
         return YQL.execp(query).then(function(response) {
             var industryToSQL = [];
             var companyToSQL = [];
@@ -186,27 +202,12 @@
         });
     }
 
-    /***
-     *
-     * @param tables in formation of [{
-     *   name: tableName,
-     *   columns: [
-     *     {
-     *       name: columnName,
-     *       dataType: dataType
-     *     }
-     *   ]
-     * }]
-     * @returns {*}
-     * @constructor
-     */
     function DropAndCreateTables() {
-        // var db = new sqlite3.Database(SETTINGS.db);
         db.serialize(function() {
             SETTINGS.basicTables.forEach(function(table) {
                 if (SETTINGS.deleteDb) {
                     var query = util.format("DROP TABLE IF EXISTS %s;", table.name);
-                    logger.debug(query);
+                    logger.trace(query);
                     db.run(query);
                 }
                 var columns = "";
@@ -214,16 +215,13 @@
                     columns += util.format("%s %s,", col.name, col.dataType || "string" + (col.isKey ? " PRIMARY KEY" : ""));
                 });
 
-
                 var query = util.format("CREATE TABLE IF NOT EXISTS %s (%s);", table.name, columns.substring(0, columns.length - 1));
-                logger.debug(query);
+                logger.trace(query);
                 db.run(query, function (error) {
                     if (error) logger.error(error);
                 });
             });
         });
-        logger.debug("before close");
-        // db.close();
     }
 
     /***
@@ -232,9 +230,8 @@
      * @constructor
      */
     function SaveIndustriesAndCompanies(results) {
-        logger.debug("Saving");
+        logger.info("Saving Industry And Company");
         var tickers = [];
-        // var db = new sqlite3.Database(SETTINGS.db);
         db.serialize(function() {
             db.run("BEGIN TRANSACTION");
             results.industries.forEach(function(industry) {
@@ -251,41 +248,34 @@
             });
             db.run("END");
         });
-        // db.close();
-        logger.debug("we have " + tickers.length + " tickers");
+        logger.info("we have received " + tickers.length + " symbols");
         return tickers;
     }
     function CreateFinancialStatementsTables() {
-        // var db = new sqlite3.Database(SETTINGS.db);
-        db.serialize(function() {
-            SETTINGS.financialStatementsTables.forEach(function(table) {
+        db.serialize(function () {
+            SETTINGS.financialStatementsTables.forEach(function (table) {
                 if (SETTINGS.deleteDb) {
                     var query = util.format("DROP TABLE IF EXISTS %s;", table.name)
-                    logger.debug(query);
+                    logger.info(query);
                     db.run(query);
                 }
                 var columns = "";
-                table.columns.forEach(function(col) {
+                table.columns.forEach(function (col) {
                     columns += util.format("%s DOUBLE, ", col);
                 });
 
                 var query = util.format("CREATE TABLE IF NOT EXISTS %s (%s period DATE NOT NULL, %s symbol STRING NOT NULL, PRIMARY KEY (symbol, period));",
                     table.name, columns, table.name === "keystats" ? "" : "timeframe STRING NOT NULL,");
-                logger.debug(query);
+                logger.info(query);
                 db.run(query, function (error) {
                     if (error) logger.error(error);
                 });
             });
         });
-        // db.close();
     }
-    /**
-     * Load BalanceSheets, IncomeStatement, CashFlow, KeyStates
-     */
-    var COUNTERS = {};
-    COUNTERS["response"] = 0;
+
     function LoadFinancialStatements(allTickers) {
-        logger.debug("LoadFinancialStatements for " + allTickers.length + " tickers");
+        logger.info("LoadFinancialStatements for " + allTickers.length + " tickers");
         var promises = [];
 
         allTickers.chunk(SETTINGS.chunk).forEach(function(tickers){
@@ -293,8 +283,9 @@
                 promises.push(Q.fcall(function () {
                     var query = util.format("SELECT * FROM yahoo.finance.%s WHERE symbol in (%s) ", table.name, "\""
                      + tickers.join("\",\"") + "\"") + (table.name === "keystats" ? "" : " and timeframe=\"annually\"");
+                    logger.trace(query);
                     return YQL.execp(query).then(function(response) {
-                        logger.debug(util.format("getting response! COUNTERS[response] = %d, total = %d", COUNTERS.response, promises.length));
+                        logger.info(util.format("LoadFinancialStatements Promises! Progress = (%d/%d)", COUNTERS.response, promises.length));
                         COUNTERS.response = COUNTERS.response + 1;
                         return response;
                     });
@@ -304,9 +295,8 @@
         });
 
         return Q.allSettled(promises).then(function (promiseResults) {
-            logger.debug("LoadFinancialStatements promises settled");
+            logger.info("LoadFinancialStatements promises settled");
             promiseResults.forEach(function(promiseResult){
-                // var db = new sqlite3.Database(SETTINGS.db);
                 db.serialize(function() {
                     db.run("BEGIN TRANSACTION");
                     if (promiseResult.state === "fulfilled") {
@@ -335,6 +325,7 @@
                                     var query = util.format(
                                         "INSERT OR REPLACE INTO %s (%s) VALUES (%s);",
                                         table.name, table.columns.join(",") + ", period, " + (timeframe ? "timeframe,":"") + " symbol", valueForInsert);
+                                    logger.trace(query);
                                     db.run(query);
                                 };
                                 if (table.name in results) {
@@ -344,11 +335,11 @@
                                             if (Array.isArray(statementsOfCompany.statement)) {
                                                 statements = statementsOfCompany.statement;
                                             } else {
-                                                logger.warn("NOT ARRAY!" + JSON.stringify(statementsOfCompany.statement));
+                                                logger.trace("NOT ARRAY!" + JSON.stringify(statementsOfCompany.statement));
                                                 statements.push(statementsOfCompany.statement);
                                             }
                                         } else {
-                                            logger.warn("statement not exist in " + JSON.stringify(statementsOfCompany));
+                                            logger.trace("statement not exist in " + JSON.stringify(statementsOfCompany));
                                         }
                                         statements.forEach(function(statement) {
                                             processStatement(statement, statementsOfCompany.timeframe, statementsOfCompany.symbol);
@@ -362,11 +353,10 @@
                             });
                         }
                     } else {
-                        logger.debug("not fulfilled, " + JSON.stringify(promiseResult));
+                        logger.info("not fulfilled, " + JSON.stringify(promiseResult));
                     }
                     db.run("END");
                 });
-                // db.close();
             });
 
         });
@@ -383,18 +373,19 @@
     }).then(function(results){
         return SaveIndustriesAndCompanies(results);
     }).then(function(tickers){
-        /*tickers = tickers.filter(function(ticker) {
-            return ticker.indexOf(".") == -1;
-        }).slice(0,1000);*/
-        //logger.debug(tickers.join(","));
+        if (SETTINGS.usStockOnly) {
+            logger.info("U.S. Stocks Only");
+            tickers = tickers.filter(function(ticker) {
+                return ticker.indexOf(".") == -1;
+            }).slice(0,1000);
+        }
         return tickers;
     }).then(function(tickers) {
         return LoadFinancialStatements(tickers);
     }).catch(function(error) {
         logger.error(error);
-    }).done(function(wat){
+    }).done(function(){
         db.close();
-        logger.debug("ALL DONE!");
-
+        logger.info("Finished!");
     });
 })();
