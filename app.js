@@ -102,6 +102,45 @@
                     "NetIncomeApplicableToCommonShares"
 
                 ]
+            },
+            {
+                name: "keystats",
+                columns: [ 'MarketCap',
+                    'EnterpriseValue',
+                    'TrailingPE',
+                    'ForwardPE',
+                    'PEGRatio',
+                    'PriceSales',
+                    'PriceBook',
+                    'EnterpriseValueRevenue',
+                    'EnterpriseValueEBITDA',
+                    'MostRecentQuarter',
+                    'ProfitMargin',
+                    'OperatingMargin',
+                    'ReturnonAssets',
+                    'ReturnonEquity',
+                    'Revenue',
+                    'RevenuePerShare',
+                    'QtrlyRevenueGrowth',
+                    'GrossProfit',
+                    'EBITDA',
+                    'NetIncomeAvltoCommon',
+                    'DilutedEPS',
+                    'QtrlyEarningsGrowth',
+                    'TotalCash',
+                    'TotalCashPerShare',
+                    'TotalDebt',
+                    'TotalDebtEquity',
+                    'CurrentRatio',
+                    'BookValuePerShare',
+                    'OperatingCashFlow',
+                    'LeveredFreeCashFlow',
+                    'p_52_WeekHigh',
+                    'p_52_WeekLow',
+                    'ShortRatio',
+                    'ShortPercentageofFloat',
+                    'LastSplitFactor'
+                    ]
             }
         ],
         basicTables: [{
@@ -129,10 +168,10 @@
      * Used as a Q promise
      */
     function LoadIndustriesAndCompanies() {
-        logger.debug("loading industry");
         var query = 'select * from yahoo.finance.industry where id in (select industry.id from yahoo.finance.sectors)';
+
+        logger.debug("QUERY: " + query);
         return YQL.execp(query).then(function(response) {
-            logger.debug("finished loading industry 1");
             var industryToSQL = [];
             var companyToSQL = [];
             for (var i in response.query.results.industry) {
@@ -143,7 +182,6 @@
                     companyToSQL.push({industryId: industry.id, name: company.name, symbol: company.symbol});
                 }
             }
-            logger.debug("finished loading industry 2");
             return {industries: industryToSQL, companies: companyToSQL};
         });
     }
@@ -228,10 +266,11 @@
                 }
                 var columns = "";
                 table.columns.forEach(function(col) {
-                    columns += util.format("%s LONG, ", col);
+                    columns += util.format("%s DOUBLE, ", col);
                 });
 
-                var query = util.format("CREATE TABLE IF NOT EXISTS %s (%s period DATE NOT NULL, timeframe STRING NOT NULL, symbol STRING NOT NULL, PRIMARY KEY (symbol, period));", table.name, columns);
+                var query = util.format("CREATE TABLE IF NOT EXISTS %s (%s period DATE NOT NULL, %s symbol STRING NOT NULL, PRIMARY KEY (symbol, period));",
+                    table.name, columns, table.name === "keystats" ? "" : "timeframe STRING NOT NULL,");
                 logger.debug(query);
                 db.run(query, function (error) {
                     if (error) logger.error(error);
@@ -252,8 +291,8 @@
         allTickers.chunk(SETTINGS.chunk).forEach(function(tickers){
             SETTINGS.financialStatementsTables.forEach(function(table){
                 promises.push(Q.fcall(function () {
-                    var query = util.format("SELECT * FROM yahoo.finance.%s WHERE symbol in (%s) and timeframe=\"annually\"", table.name, "\""
-                     + tickers.join("\",\"") + "\"");
+                    var query = util.format("SELECT * FROM yahoo.finance.%s WHERE symbol in (%s) ", table.name, "\""
+                     + tickers.join("\",\"") + "\"") + (table.name === "keystats" ? "" : " and timeframe=\"annually\"");
                     return YQL.execp(query).then(function(response) {
                         logger.debug("getting response! COUNTERS[response]=" + COUNTERS.response);
                         COUNTERS.response = COUNTERS.response + 1;
@@ -274,34 +313,51 @@
                         if ("query" in promiseResult.value && "results" in promiseResult.value.query) {
                             var results = promiseResult.value.query.results;
                             SETTINGS.financialStatementsTables.forEach(function(table) {
+                                var processStatement = function (statement, timeframe, symbol) {
+                                    var valueForInsert = "";
+                                    table.columns.forEach(function (column) {
+                                        try {
+                                            if (column in statement && statement[column] && !isNaN(statement[column].content))
+                                                valueForInsert += (parseFloat(statement[column].content) + ",");
+                                            else {
+                                                valueForInsert += "NULL,";
+                                            }
+                                        } catch(error) {
+                                            logger.error(column);
+                                            logger.error(statement);
+                                            logger.error(error);
+                                            logger.error("error");
+                                        }
+                                    });
+                                    valueForInsert += "\"" + (new Date(statement.period || promiseResult.value.query.created)).toISOString() + "\",";
+                                    valueForInsert += timeframe ? "\"" + timeframe + "\",": "";
+                                    valueForInsert += "\"" + symbol + "\"";
+                                    var query = util.format(
+                                        "INSERT OR REPLACE INTO %s (%s) VALUES (%s);",
+                                        table.name, table.columns.join(",") + ", period, " + (timeframe ? "timeframe,":"") + " symbol", valueForInsert);
+                                    db.run(query);
+                                };
                                 if (table.name in results) {
-                                    results[table.name].forEach(function(statementsOfCompany) {
+                                    results[table.name].forEach(function (statementsOfCompany) {
+                                        var statements = [];
                                         if ("statement" in statementsOfCompany && statementsOfCompany.statement) {
-                                            var processStatement = function (statement) {
-                                                var valueForInsert = "";
-                                                table.columns.forEach(function (column) {
-                                                    valueForInsert += (parseInt(statement[column].content) || "NULL") + ",";
-                                                });
-                                                valueForInsert += "\"" + (new Date(statement.period)).toISOString() + "\",";
-                                                valueForInsert += "\"" + statementsOfCompany.timeframe + "\",";
-                                                valueForInsert += "\"" + statementsOfCompany.symbol + "\"";
-                                                var query = util.format(
-                                                    "INSERT OR REPLACE INTO %s (%s) VALUES (%s);",
-                                                    table.name, table.columns.join(",") + ",period, timeframe, symbol", valueForInsert);
-                                                db.run(query);
-                                            };
                                             if (Array.isArray(statementsOfCompany.statement)) {
-                                                statementsOfCompany.statement.forEach(processStatement);
+                                                statements = statementsOfCompany.statement;
                                             } else {
                                                 logger.warn("NOT ARRAY!" + JSON.stringify(statementsOfCompany.statement));
-                                                processStatement(statementsOfCompany.statement);
+                                                statements.push(statementsOfCompany.statement);
                                             }
-                                            logger.debug("statement exists in " + statementsOfCompany.symbol);
                                         } else {
                                             logger.warn("statement not exist in " + JSON.stringify(statementsOfCompany));
                                         }
+                                        statements.forEach(function(statement) {
+                                            processStatement(statement, statementsOfCompany.timeframe, statementsOfCompany.symbol);
+                                        });
                                     });
-
+                                } else if (table.name === "keystats" && "stats" in results) {
+                                    results.stats.forEach(function (statement) {
+                                        processStatement(statement, null, statement.symbol);
+                                    });
                                 }
                             });
                         }
@@ -329,10 +385,11 @@
     }).then(function(tickers){
         /*tickers = tickers.filter(function(ticker) {
             return ticker.indexOf(".") == -1;
-        }).slice(0,300);*/
-        logger.debug(tickers.join(","));
+        }).slice(0,1000);*/
+        //logger.debug(tickers.join(","));
+        return tickers;
+    }).then(function(tickers) {
         return LoadFinancialStatements(tickers);
-
     }).catch(function(error) {
         logger.error(error);
     }).done(function(wat){
