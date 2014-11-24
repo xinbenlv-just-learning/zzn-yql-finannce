@@ -49,8 +49,60 @@
                     "TotalStockholderEquity",
                     "NetTangibleAssets"
                 ]
-            }
+            },
+            {
+                name: "cashflow",
+                columns: [
+                    "NetIncome",
+                    "Depreciation",
+                    "AdjustmentsToNetIncome",
+                    "ChangesInAccountsReceivables",
+                    "ChangesInLiabilities",
+                    "ChangesInInventories",
+                    "ChangesInOtherOperatingActivities",
+                    "TotalCashFlowFromOperatingActivities",
+                    "CapitalExpenditures",
+                    "Investments",
+                    "OtherCashflowsfromInvestingActivities",
+                    "TotalCashFlowsFromInvestingActivities",
+                    "DividendsPaid",
+                    "SalePurchaseofStock",
+                    "NetBorrowings",
+                    "OtherCashFlowsfromFinancingActivities",
+                    "TotalCashFlowsFromFinancingActivities",
+                    "EffectOfExchangeRateChanges",
+                    "ChangeInCashandCashEquivalents"
+                ]
+            },
+            {
+                name: "incomestatement",
+                columns: [
+                    "TotalRevenue",
+                    "CostofRevenue",
+                    "GrossProfit",
+                    "ResearchDevelopment",
+                    "SellingGeneralandAdministrative",
+                    "NonRecurring",
+                    "Others",
+                    "TotalOperatingExpenses",
+                    "OperatingIncomeorLoss",
+                    "TotalOtherIncome_ExpensesNet",
+                    "EarningsBeforeInterestAndTaxes",
+                    "InterestExpense",
+                    "IncomeBeforeTax",
+                    "IncomeTaxExpense",
+                    "MinorityInterest",
+                    "NetIncomeFromContinuingOps",
+                    "DiscontinuedOperations",
+                    "ExtraordinaryItems",
+                    "EffectOfAccountingChanges",
+                    "OtherItems",
+                    "NetIncome",
+                    "PreferredStockAndOtherAdjustments",
+                    "NetIncomeApplicableToCommonShares"
 
+                ]
+            }
         ],
         basicTables: [{
             name: 'industry',
@@ -277,7 +329,7 @@
     }).then(function(tickers){
         /*tickers = tickers.filter(function(ticker) {
             return ticker.indexOf(".") == -1;
-        });//.slice(0,30);*/
+        }).slice(0,300);*/
         logger.debug(tickers.join(","));
         return LoadFinancialStatements(tickers);
 
