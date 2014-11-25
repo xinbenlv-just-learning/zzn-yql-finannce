@@ -26,7 +26,8 @@
     var SETTINGS = {
         db: "finance.db",
         deleteDb: false,
-        chunk: 200,
+        chunk: 100,
+        limitNumberOfTickers: 100000,
         usStockOnly: false,
         financialStatementsTables: [
             {
@@ -182,7 +183,7 @@
     };
     var PROGRESS = {};
     PROGRESS["response"] = 0;
-    PROGRESS["started"] = new Date();
+    PROGRESS["started"] = null;
     function LoadIndustriesAndCompanies() {
         logger.info("Load Industries and Companies");
         var query = 'select * from yahoo.finance.industry where id in (select industry.id from yahoo.finance.sectors)';
@@ -279,7 +280,7 @@
     function LoadFinancialStatements(allTickers) {
         logger.info("LoadFinancialStatements for " + allTickers.length + " tickers");
         var promises = [];
-
+        PROGRESS["started"] = new Date();
         allTickers.chunk(SETTINGS.chunk).forEach(function(tickers){
             SETTINGS.financialStatementsTables.forEach(function(table){
                 promises.push(Q.fcall(function () {
@@ -307,11 +308,13 @@
             logger.info("LoadFinancialStatements promises settled");
             promiseResults.forEach(function(promiseResult){
                 db.serialize(function() {
-                    db.run("BEGIN TRANSACTION");
                     if (promiseResult.state === "fulfilled") {
                         if ("query" in promiseResult.value && "results" in promiseResult.value.query) {
+                            logger.trace("BEGIN TRANSACTION");
+                            db.run("BEGIN TRANSACTION");
                             var results = promiseResult.value.query.results;
                             SETTINGS.financialStatementsTables.forEach(function(table) {
+
                                 var processStatement = function (statement, timeframe, symbol) {
                                     var valueForInsert = "";
                                     table.columns.forEach(function (column) {
@@ -359,12 +362,15 @@
                                         processStatement(statement, null, statement.symbol);
                                     });
                                 }
+
                             });
+                            logger.trace("END");
+                            db.run("END");
+
                         }
                     } else {
                         logger.info("not fulfilled, " + JSON.stringify(promiseResult));
                     }
-                    db.run("END");
                 });
             });
 
@@ -386,8 +392,9 @@
             logger.info("U.S. Stocks Only");
             tickers = tickers.filter(function(ticker) {
                 return ticker.indexOf(".") == -1;
-            }).slice(0,1000);
+            });
         }
+        tickers = tickers.slice(0,SETTINGS.limitNumberOfTickers);
         return tickers;
     }).then(function(tickers) {
         return LoadFinancialStatements(tickers);
@@ -395,8 +402,13 @@
         logger.error(error);
     }).done(function(){
         logger.info(util.format("Closing SQLite DB. elapse %d seconds.", (new Date() - PROGRESS.started)/1000));
-        db.close();
-        logger.info(util.format("Closed SQLite DB. elapse %d seconds.", (new Date() - PROGRESS.started)/1000));
-        logger.info("Finished!");
+        db.close(function(error, closeEvent){
+            if (error) {
+                throw error;
+            } else logger.trace(closeEvent);
+            logger.info(util.format("Closed SQLite DB. elapse %d seconds.", (new Date() - PROGRESS.started)/1000));
+            logger.info("Finished!");
+        });
+
     });
 })();
