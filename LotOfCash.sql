@@ -45,9 +45,9 @@ CREATE TEMP TABLE LotOfCashCompanies AS
         LEFT JOIN LatestestKeystats
         ON company.symbol = LatestestKeystats.symbol)
     WHERE
-        MCap BETWEEN 100000000 AND 2000000000 -- Market Cap between 100M and 2B
+        MCap BETWEEN 50000000 AND 2000000000 -- Market Cap between 100M and 2B
         AND Cash > 0                          -- Has positive cash
-        AND Cash > MCap*(0.5)                 -- Cash is greater than MCap
+        AND Cash > MCap*(0.33)                 -- Cash is greater than MCap
         AND industryId BETWEEN 800 AND 900    -- Section = Tech
         AND instr(symbol, '.') = 0;           -- Does not have "dot" in its symbol, means U.S. stock
 ;
@@ -55,4 +55,4 @@ CREATE TEMP TABLE LotOfCashCompanies AS
 -- SELECT COUNT(*) FROM LotOfCashCompanies;
 -- SELECT COUNT(DISTINCT symbol) FROM LotOfCashCompanies;
 
-SELECT * FROM LotOfCashCompanies;
+SELECT * FROM LotOfCashCompanies ORDER BY TrailingPE;
