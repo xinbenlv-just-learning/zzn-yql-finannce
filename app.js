@@ -26,7 +26,7 @@
     var SETTINGS = {
         db: "finance.db",
         deleteDb: false,
-        chunk: 100,
+        chunk: 200,
         usStockOnly: false,
         financialStatementsTables: [
             {
@@ -180,13 +180,13 @@
             })
         );
     };
-    var COUNTERS = {};
-    COUNTERS["response"] = 0;
-
+    var PROGRESS = {};
+    PROGRESS["response"] = 0;
+    PROGRESS["started"] = new Date();
     function LoadIndustriesAndCompanies() {
+        logger.info("Load Industries and Companies");
         var query = 'select * from yahoo.finance.industry where id in (select industry.id from yahoo.finance.sectors)';
-
-        logger.info("QUERY: " + query);
+        logger.trace(query);
         return YQL.execp(query).then(function(response) {
             var industryToSQL = [];
             var companyToSQL = [];
@@ -203,6 +203,7 @@
     }
 
     function DropAndCreateTables() {
+        logger.info("Creating company and industry Tables")
         db.serialize(function() {
             SETTINGS.basicTables.forEach(function(table) {
                 if (SETTINGS.deleteDb) {
@@ -252,6 +253,7 @@
         return tickers;
     }
     function CreateFinancialStatementsTables() {
+        logger.info("Creating Financial Statements Tables");
         db.serialize(function () {
             SETTINGS.financialStatementsTables.forEach(function (table) {
                 if (SETTINGS.deleteDb) {
@@ -266,7 +268,7 @@
 
                 var query = util.format("CREATE TABLE IF NOT EXISTS %s (%s period DATE NOT NULL, %s symbol STRING NOT NULL, PRIMARY KEY (symbol, period));",
                     table.name, columns, table.name === "keystats" ? "" : "timeframe STRING NOT NULL,");
-                logger.info(query);
+                logger.trace(query);
                 db.run(query, function (error) {
                     if (error) logger.error(error);
                 });
@@ -285,9 +287,16 @@
                      + tickers.join("\",\"") + "\"") + (table.name === "keystats" ? "" : " and timeframe=\"annually\"");
                     logger.trace(query);
                     return YQL.execp(query).then(function(response) {
-                        logger.info(util.format("LoadFinancialStatements Promises! Progress = (%d/%d)", COUNTERS.response, promises.length));
-                        COUNTERS.response = COUNTERS.response + 1;
+                        var elapsedSeconds = (new Date() - PROGRESS.started) / 1000;
+                        logger.info(util.format("LoadFinancialStatements Promises! Progress = (%d/%d), elapsed %d seconds, estimated to finish in %d seconds",
+                            PROGRESS.response,
+                            promises.length,
+                            elapsedSeconds,
+                            elapsedSeconds * (promises.length - PROGRESS.response) / PROGRESS.response));
+                        PROGRESS.response = PROGRESS.response + 1;
                         return response;
+                    }).catch(function(error) {
+                        logger.error(error);
                     });
 
                 }));
@@ -385,7 +394,9 @@
     }).catch(function(error) {
         logger.error(error);
     }).done(function(){
+        logger.info(util.format("Closing SQLite DB. elapse %d seconds.", (new Date() - PROGRESS.started)/1000));
         db.close();
+        logger.info(util.format("Closed SQLite DB. elapse %d seconds.", (new Date() - PROGRESS.started)/1000));
         logger.info("Finished!");
     });
 })();
